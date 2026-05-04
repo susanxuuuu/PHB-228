@@ -288,8 +288,10 @@ X_rank1 <- svd_X$d[1] * (svd_X$u[, 1] %*% t(svd_X$v[, 1]))
 
 # Frobenius norm of the difference
 frob_error <- norm(X - X_rank1, "F")
+cat("SVD reconstruction match?", isTRUE(all.equal(X, U %*% D_svd %*% t(V))), "\n")
 cat("Frobenius norm of X - X_rank1:", frob_error, "\n")
 ```
+The rank-1 approximation retains only the dominant direction of variance, captured by the largest singular value ($\sigma_1$ = 5). The second and third singular values ($\sigma_2$ = 5, $\sigma_3$ = 1) are discarded, meaning the structural patterns they represent are lost. In this case, since $\sigma_2$ equals $\sigma_1$, the rank-1 approximation actually loses a substantial amount of information, as reflected by the Frobenius norm of 5.099. The lost information corresponds to finer directional structure in the data that cannot be recovered from the dominant component alone.
 
 b)  **QR and Least Squares** (6 points): Using the data below, create the design matrix, solve the least squares problem via QR decomposition, compare with `lm()`, and explain the advantages of QR decomposition for least squares.
 
@@ -436,6 +438,7 @@ b)  (5 points) Use `optim()` with "Nelder-Mead". Compare all three methods (your
     )
     print(comparison)
     ```
+BFGS was the most accurate and efficient method, converging to the true minimum (1, 1) with a function value of 9.6e-18 in only 110 function evaluations. Nelder-Mead also converged accurately (f $\approx$ 8.8e-08) but required 195 function evaluations and no gradient information, making it suitable when gradients are unavailable. Gradient descent was the least efficient, exhausting all 10,000 iterations without fully converging (f ≈ 5.9e-05), because the fixed learning rate of 0.001 is too small to navigate the narrow curved valley of the Rosenbrock function quickly. Note that the comparison of iterations across methods is not fully fair since gradient descent counts iterations while BFGS and Nelder-Mead report function evaluations, which measure different things.
 
 ### 3.3 Simulation Study (15 points)
 
@@ -487,15 +490,17 @@ b)  (4 points) Run with n = 30, 1000 replications, under three distributions: no
       )
       all_metrics[[dist]] <- metrics
     }
-
-    summary_table <- do.call(rbind, all_metrics)
-    rownames(summary_table) <- NULL
-    print(summary_table)
     ```
 
 c)  (4 points) Create a summary table and write a brief paragraph (3-5 sentences) interpreting which estimator performs best under which conditions and why.
 
-    Under the normal distribution, the mean has the lowest MSE because it is the minimum variance unbiased estimator for a symmetric bell-shaped distribution. Under the heavy-tailed t(df=3) distribution, the median and trimmed mean outperform the mean because they are less sensitive to the extreme values that the t-distribution produces frequently. Under contaminated normal data, where 10% of observations come from N(0,10), the trimmed mean tends to perform best overall because it automatically discards the most extreme observations while retaining more data than the median, giving it lower variance than the median and lower sensitivity to outliers than the mean.
+```{r}
+    summary_table <- do.call(rbind, all_metrics)
+    rownames(summary_table) <- NULL
+    print(summary_table)
+```
+
+Under the normal distribution, the mean has the lowest MSE because it is the minimum variance unbiased estimator for a symmetric bell-shaped distribution. Under the heavy-tailed t(df=3) distribution, the median and trimmed mean outperform the mean because they are less sensitive to the extreme values that the t-distribution produces frequently. Under contaminated normal data, where 10% of observations come from N(0,10), the trimmed mean tends to perform best overall because it automatically discards the most extreme observations while retaining more data than the median, giving it lower variance than the median and lower sensitivity to outliers than the mean.
 
 ------------------------------------------------------------------------
 
