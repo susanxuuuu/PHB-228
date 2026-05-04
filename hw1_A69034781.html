@@ -342,7 +342,7 @@ Gentoo    4679.741 5484.836</code></pre>
 <span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.068   0.028   0.097 </code></pre>
+  0.068   0.033   0.109 </code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pre-allocated version</span></span>
 <span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">system.time</span>({</span>
@@ -353,7 +353,7 @@ Gentoo    4679.741 5484.836</code></pre>
 <span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.001   0.000   0.001 </code></pre>
+  0.000   0.000   0.001 </code></pre>
 </div>
 </div>
 <p>The growing version is slow because c(result, i^2) must copy the entire existing vector on every iteration, giving O(n^2) total work. Pre-allocating with numeric(10000) reserves all memory upfront so each assignment just writes to an existing slot, reducing the work to O(n). As the slides show, this difference becomes dramatic as n grows.</p>
