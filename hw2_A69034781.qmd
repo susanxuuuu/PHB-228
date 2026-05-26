@@ -1,0 +1,634 @@
+---
+title: "PHB 228: Homework 2 - Statistical Models, Visualization, and Tools"
+author: "Yunshan Xu (A69034781)"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-float: true
+    code-fold: false
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| label: setup
+#| include: false
+
+# Load all required packages
+library(MASS)
+library(car)
+library(lme4)
+library(ggplot2)
+library(dplyr)
+library(palmerpenguins)
+library(shiny)
+library(parallel)
+library(microbenchmark)
+```
+
+---
+
+# Part 1: Linear and Generalized Linear Models (34 points)
+
+## 1.1 Linear Models and Diagnostics (16 points)
+
+### 1.1a: Linear Model - mpg ~ wt + hp (4 points)
+
+```{r lm-basic}
+# Fit linear model predicting mpg from wt and hp
+model_1a <- lm(mpg ~ wt + hp, data = mtcars)
+summary(model_1a)
+```
+
+**Interpretation:**
+
+*TODO: Interpret the coefficients here. Address:*
+- *What does the intercept represent?*
+- *What is the effect of wt on mpg (holding hp constant)?*
+- *What is the effect of hp on mpg (holding wt constant)?*
+- *Comment on R-squared and overall model significance.*
+
+### 1.1b: Diagnostic Plots (5 points)
+
+```{r lm-diagnostics}
+#| fig-width: 8
+#| fig-height: 4
+
+# Residuals vs Fitted
+par(mfrow = c(1, 2))
+plot(model_1a, which = 1, main = "Residuals vs Fitted")
+plot(model_1a, which = 2, main = "Normal Q-Q Plot")
+par(mfrow = c(1, 1))
+```
+
+**Interpretation:**
+
+*TODO: Interpret each plot:*
+- *Residuals vs Fitted: Is there a pattern? Does it suggest non-linearity or heteroscedasticity?*
+- *Normal Q-Q: Do residuals follow a normal distribution? Note any deviations.*
+
+### 1.1c: Multicollinearity Check with VIF (3 points)
+
+```{r vif-check}
+# Check variance inflation factors
+car::vif(model_1a)
+```
+
+**Interpretation:**
+
+*TODO: Interpret VIF values. General rule: VIF > 5 suggests moderate multicollinearity, VIF > 10 is severe. What do these values suggest about wt and hp?*
+
+### 1.1d: Interaction Term and Model Comparison (4 points)
+
+```{r lm-interaction}
+# Fit model with interaction term
+model_1d <- lm(mpg ~ wt * hp, data = mtcars)
+summary(model_1d)
+
+# Compare models with ANOVA
+anova(model_1a, model_1d)
+```
+
+**Model Preference:**
+
+*TODO: Based on the ANOVA p-value, R-squared improvement, and interpretability, which model do you prefer and why?*
+
+---
+
+## 1.2 Logistic Regression (18 points)
+
+```{r biopsy-setup}
+# Load and prepare biopsy dataset
+data(biopsy, package = "MASS")
+biopsy <- na.omit(biopsy)
+biopsy$class <- factor(biopsy$class, levels = c("benign", "malignant"))
+```
+
+### 1.2a: Boxplot of V1 by Class (4 points)
+
+```{r biopsy-boxplot}
+#| fig-width: 6
+#| fig-height: 5
+
+# Boxplot comparing V1 between benign and malignant tumors
+ggplot(biopsy, aes(x = class, y = V1, fill = class)) +
+  geom_boxplot() +
+  labs(
+    title = "Cell Thickness (V1) by Tumor Class",
+    x = "Tumor Class",
+    y = "Cell Thickness (V1)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+**Interpretation:**
+
+*TODO: Compare the distributions. What do the medians, spreads, and outliers suggest about V1 as a predictor of malignancy?*
+
+### 1.2b: Logistic Regression Model (4 points)
+
+```{r logistic-model}
+# Fit logistic regression predicting malignancy from V1, V2, V3
+model_logit <- glm(class ~ V1 + V2 + V3,
+                   data = biopsy,
+                   family = binomial)
+summary(model_logit)
+
+# Calculate odds ratios
+odds_ratios <- exp(coef(model_logit))
+odds_ratios
+```
+
+**Interpretation:**
+
+*TODO: Interpret the model. For each predictor, what does the odds ratio mean? Which predictors are statistically significant?*
+
+### 1.2c: Confusion Matrix and Performance Metrics (6 points)
+
+```{r confusion-matrix}
+# Calculate predicted probabilities
+pred_probs <- predict(model_logit, type = "response")
+
+# Apply threshold of 0.5 to get predicted classes
+pred_class <- ifelse(pred_probs >= 0.5, "malignant", "benign")
+pred_class <- factor(pred_class, levels = c("benign", "malignant"))
+
+# Confusion matrix
+conf_matrix <- table(Predicted = pred_class, Actual = biopsy$class)
+conf_matrix
+
+# Calculate performance metrics
+TP <- conf_matrix["malignant", "malignant"]
+TN <- conf_matrix["benign", "benign"]
+FP <- conf_matrix["malignant", "benign"]
+FN <- conf_matrix["benign", "malignant"]
+
+accuracy    <- (TP + TN) / sum(conf_matrix)
+sensitivity <- TP / (TP + FN)
+specificity <- TN / (TN + FP)
+
+cat("Accuracy:   ", round(accuracy, 4), "\n")
+cat("Sensitivity:", round(sensitivity, 4), "\n")
+cat("Specificity:", round(specificity, 4), "\n")
+```
+
+**Interpretation:**
+
+*TODO: What does each metric tell us? Is this a good classifier? Discuss any tradeoffs between sensitivity and specificity in a clinical context.*
+
+### 1.2d: Predict New Observation (4 points)
+
+```{r logistic-predict}
+# Predict probability of malignancy for new observation
+new_obs <- data.frame(V1 = 5, V2 = 4, V3 = 4)
+pred_new <- predict(model_logit, newdata = new_obs, type = "response")
+cat("Predicted probability of malignancy:", round(pred_new, 4), "\n")
+```
+
+**Interpretation:**
+
+*TODO: Interpret this probability in plain language. What would you advise based on this result?*
+
+---
+
+# Part 2: Mixed-Effects Models (22 points)
+
+## 2a: Simulate Dataset (4 points)
+
+```{r mixed-simulate}
+library(lme4)
+set.seed(123)
+
+n_participants <- 20
+n_items        <- 15
+n_conditions   <- 2
+
+# TODO: Build simulation with participant random effects, item random effects,
+# condition fixed effect, and residual error.
+# Structure: each participant completes n_items in each condition
+
+sim_data <- expand.grid(
+  participant = factor(1:n_participants),
+  item        = factor(1:n_items),
+  condition   = factor(c("control", "treatment"))
+)
+
+# Participant random intercepts
+participant_intercepts <- rnorm(n_participants, mean = 0, sd = 50)
+
+# Item random intercepts
+item_intercepts <- rnorm(n_items, mean = 0, sd = 30)
+
+# Fixed effect of condition (treatment slower by 20ms)
+condition_effect <- ifelse(sim_data$condition == "treatment", 20, 0)
+
+# Combine effects
+sim_data$reaction_time <-
+  500 +
+  participant_intercepts[sim_data$participant] +
+  item_intercepts[sim_data$item] +
+  condition_effect +
+  rnorm(nrow(sim_data), mean = 0, sd = 25)
+
+head(sim_data)
+```
+
+## 2b: Fit and Compare Three Models (5 points)
+
+```{r mixed-models}
+# Model 1: Fixed effects only
+m1_fixed <- lm(reaction_time ~ condition, data = sim_data)
+
+# Model 2: Random intercepts for participants only
+m2_participant <- lmer(reaction_time ~ condition + (1 | participant),
+                       data = sim_data, REML = FALSE)
+
+# Model 3: Random intercepts for participants and items
+m3_both <- lmer(reaction_time ~ condition + (1 | participant) + (1 | item),
+                data = sim_data, REML = FALSE)
+
+# Compare models
+AIC(m1_fixed, m2_participant, m3_both)
+anova(m2_participant, m3_both)
+```
+
+**Comparison:**
+
+*TODO: Based on AIC and likelihood ratio test, which model fits best? Why does accounting for random effects matter here?*
+
+## 2c: Fixed Effects and ICC (5 points)
+
+```{r mixed-fixed-effects}
+# Extract fixed effects from best model
+fixef(m3_both)
+
+# Calculate ICC for participants
+# ICC = variance_participant / (variance_participant + variance_item + residual)
+var_components <- as.data.frame(VarCorr(m3_both))
+var_participant <- var_components$vcov[var_components$grp == "participant"]
+var_item        <- var_components$vcov[var_components$grp == "item"]
+var_residual    <- var_components$vcov[var_components$grp == "Residual"]
+
+ICC_participant <- var_participant / (var_participant + var_item + var_residual)
+cat("ICC for participants:", round(ICC_participant, 4), "\n")
+```
+
+**Interpretation:**
+
+*TODO: Interpret the fixed effects (intercept and condition). What does the ICC value tell us about how much of the variance in reaction time is attributable to between-participant differences?*
+
+## 2d: Random Slopes Model (5 points)
+
+```{r mixed-random-slopes}
+# Fit model with random slopes for condition by participant
+m4_slopes <- lmer(reaction_time ~ condition + (condition | participant) + (1 | item),
+                  data = sim_data, REML = FALSE)
+
+# Likelihood ratio test vs random intercepts model
+anova(m3_both, m4_slopes)
+```
+
+**Interpretation:**
+
+*TODO: Does adding random slopes significantly improve model fit? What does this mean substantively -- do participants vary in how much the treatment affects their reaction time?*
+
+## 2e: Individual Participant Regression Lines (3 points)
+
+```{r mixed-participant-plot}
+#| fig-width: 8
+#| fig-height: 6
+
+# Extract predicted values and plot individual lines per participant
+sim_data$fitted <- predict(m3_both)
+
+ggplot(sim_data, aes(x = condition, y = fitted,
+                     group = participant, color = participant)) +
+  geom_line(alpha = 0.6) +
+  geom_point(alpha = 0.3, size = 0.8) +
+  labs(
+    title = "Individual Participant Reaction Time by Condition",
+    x = "Condition",
+    y = "Fitted Reaction Time (ms)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+---
+
+# Part 3: Advanced Data Visualization (22 points)
+
+## 3.1 Custom Theme (4 points)
+
+```{r custom-theme}
+# Custom theme for scientific publication
+theme_penguin <- function() {
+  theme_minimal() +
+    theme(
+      # Panel
+      panel.background  = element_rect(fill = "white", color = NA),
+      panel.grid.major  = element_line(color = "grey90", linewidth = 0.4),
+      panel.grid.minor  = element_blank(),
+      panel.border      = element_rect(color = "grey70", fill = NA,
+                                       linewidth = 0.5),
+      # Text
+      plot.title        = element_text(size = 14, face = "bold",
+                                       margin = margin(b = 8)),
+      plot.subtitle     = element_text(size = 11, color = "grey40",
+                                       margin = margin(b = 8)),
+      axis.title        = element_text(size = 11, face = "bold"),
+      axis.text         = element_text(size = 9, color = "grey30"),
+      # Legend
+      legend.title      = element_text(size = 10, face = "bold"),
+      legend.text       = element_text(size = 9),
+      legend.background = element_rect(fill = "white", color = "grey85"),
+      legend.margin     = margin(4, 6, 4, 6),
+      # Strips (facets)
+      strip.text        = element_text(size = 10, face = "bold"),
+      strip.background  = element_rect(fill = "grey95", color = "grey70")
+    )
+}
+```
+
+## 3.2 Faceted Scatter Plot (6 points)
+
+```{r faceted-plot}
+#| fig-width: 10
+#| fig-height: 4
+
+# Colorblind-friendly palette
+cb_palette <- c("female" = "#0072B2", "male" = "#E69F00")
+
+ggplot(penguins |> filter(!is.na(sex)),
+       aes(x = flipper_length_mm, y = bill_length_mm, color = sex)) +
+  geom_point(alpha = 0.7, size = 1.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ species) +
+  scale_color_manual(values = cb_palette) +
+  labs(
+    title    = "Bill Length vs. Flipper Length by Species",
+    subtitle = "With linear regression lines and 95% confidence intervals",
+    x        = "Flipper Length (mm)",
+    y        = "Bill Length (mm)",
+    color    = "Sex"
+  ) +
+  theme_penguin()
+```
+
+## 3.3 Distribution Comparison (5 points)
+
+```{r distribution-plot}
+#| fig-width: 8
+#| fig-height: 5
+
+ggplot(penguins |> filter(!is.na(sex)),
+       aes(x = species, y = body_mass_g, fill = sex)) +
+  geom_violin(alpha = 0.4, position = position_dodge(0.8)) +
+  geom_boxplot(width = 0.2, alpha = 0.8,
+               position = position_dodge(0.8),
+               outlier.size = 1) +
+  scale_fill_manual(values = cb_palette) +
+  scale_y_continuous(limits = c(0, NA),
+                     labels = scales::comma) +
+  labs(
+    title = "Body Mass Distribution by Species and Sex",
+    x     = "Species",
+    y     = "Body Mass (g)",
+    fill  = "Sex"
+  ) +
+  theme_penguin()
+```
+
+## 3.4 Complex Multi-Variable Visualization (7 points)
+
+```{r complex-plot}
+#| fig-width: 9
+#| fig-height: 6
+
+# TODO: Customize further as needed
+
+ggplot(penguins |> filter(!is.na(sex) & !is.na(bill_depth_mm)),
+       aes(x = bill_length_mm, y = bill_depth_mm,
+           color = species, size = body_mass_g)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.7,
+              aes(group = species)) +
+  scale_color_brewer(palette = "Set1") +
+  scale_size_continuous(range = c(1, 6), name = "Body Mass (g)") +
+  labs(
+    title    = "Bill Morphology and Body Mass Across Penguin Species",
+    subtitle = "Point size reflects body mass; lines show species-level trends",
+    x        = "Bill Length (mm)",
+    y        = "Bill Depth (mm)",
+    color    = "Species"
+  ) +
+  theme_penguin()
+```
+
+**Biological Interpretation:**
+
+*TODO: Write 3-5 sentences interpreting the biological patterns. Consider: What does the separation between species suggest about bill morphology? Is there a relationship between bill dimensions and body mass? What might drive these patterns ecologically?*
+
+---
+
+# Part 4: Interactive Visualization with Shiny (12 points)
+
+> Note: Shiny apps cannot run inline in a rendered Quarto HTML file.
+> The app code is provided below and can be run with `shiny::runApp()`.
+
+## 4a-c: Shiny App Code
+
+```{r shiny-app}
+#| eval: false
+
+library(shiny)
+library(ggplot2)
+
+# UI
+ui <- fluidPage(
+  titlePanel("MTCars Explorer"),
+
+  sidebarLayout(
+    sidebarPanel(
+      # 4a: Dropdown to select predictor variable
+      selectInput(
+        inputId  = "predictor",
+        label    = "Select Predictor Variable:",
+        choices  = c("Weight (wt)"          = "wt",
+                     "Horsepower (hp)"      = "hp",
+                     "Displacement (disp)"  = "disp",
+                     "Rear axle ratio (drat)" = "drat"),
+        selected = "wt"
+      ),
+
+      # 4c Enhancement: slider to filter by number of cylinders
+      # This allows users to explore how the mpg relationship changes
+      # for 4, 6, or 8 cylinder subgroups, adding a meaningful
+      # stratification layer to the basic scatter plot.
+      sliderInput(
+        inputId = "cyl_filter",
+        label   = "Filter by Cylinders (min):",
+        min     = 4, max = 8, value = 4, step = 2
+      )
+    ),
+
+    mainPanel(
+      # 4a: Plot and model summary outputs
+      plotOutput("scatter_plot"),
+      verbatimTextOutput("model_summary")
+    )
+  )
+)
+
+# Server
+server <- function(input, output) {
+
+  # 4b: Reactive expression to fit the linear model
+  fitted_model <- reactive({
+    filtered_data <- mtcars[mtcars$cyl >= input$cyl_filter, ]
+    lm(as.formula(paste("mpg ~", input$predictor)), data = filtered_data)
+  })
+
+  # 4b: Render scatter plot with regression line
+  output$scatter_plot <- renderPlot({
+    filtered_data <- mtcars[mtcars$cyl >= input$cyl_filter, ]
+    ggplot(filtered_data, aes_string(x = input$predictor, y = "mpg")) +
+      geom_point(size = 2.5, alpha = 0.8, color = "#0072B2") +
+      geom_smooth(method = "lm", se = TRUE, color = "#E69F00") +
+      labs(
+        title = paste("MPG vs.", input$predictor),
+        x     = input$predictor,
+        y     = "Miles per Gallon (mpg)"
+      ) +
+      theme_minimal(base_size = 14)
+  })
+
+  # 4b: Render model summary
+  output$model_summary <- renderPrint({
+    summary(fitted_model())
+  })
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
+```
+
+---
+
+# Part 5: Parallel Computing (10 points)
+
+## 5.1a: Core Detection and safe_cores (2 points)
+
+```{r cores-setup}
+# Detect number of logical and physical cores
+logical_cores  <- parallel::detectCores(logical = TRUE)
+physical_cores <- parallel::detectCores(logical = FALSE)
+
+cat("Logical cores: ", logical_cores, "\n")
+cat("Physical cores:", physical_cores, "\n")
+
+# Leave one core free for the OS and other processes
+safe_cores <- max(1, physical_cores - 1)
+cat("safe_cores:    ", safe_cores, "\n")
+```
+
+**Choice of safe_cores:**
+
+*TODO: Explain why you left at least one core free. Mention that using all cores can freeze your system or starve the OS of resources.*
+
+## 5.1b: Benchmarking Sequential vs. Parallel (2 points)
+
+```{r benchmark}
+# Function that computes mean with a small delay
+slow_mean <- function(x) {
+  Sys.sleep(0.01)
+  mean(x)
+}
+
+# Generate 100 random vectors
+set.seed(42)
+vectors <- lapply(1:100, function(i) rnorm(100))
+
+# Benchmark sequential vs parallel
+bm <- microbenchmark::microbenchmark(
+  sequential = lapply(vectors, slow_mean),
+  parallel   = parallel::mclapply(vectors, slow_mean, mc.cores = safe_cores),
+  times = 3  # keep small since each run takes ~1 second
+)
+print(bm)
+```
+
+**Findings:**
+
+*TODO: Compare median times. How much faster is the parallel version? Does the speedup match the number of cores used?*
+
+## 5.2a: Sequential Bootstrap CI (2 points)
+
+```{r bootstrap-sequential}
+bootstrap_ci_sequential <- function(data,
+                                    n_bootstrap = 1000,
+                                    confidence  = 0.95) {
+  boot_means <- numeric(n_bootstrap)
+  for (i in seq_len(n_bootstrap)) {
+    boot_sample  <- sample(data, length(data), replace = TRUE)
+    boot_means[i] <- mean(boot_sample)
+  }
+  alpha <- 1 - confidence
+  ci    <- quantile(boot_means, probs = c(alpha / 2, 1 - alpha / 2))
+  c(lower = unname(ci[1]), upper = unname(ci[2]))
+}
+```
+
+## 5.2b: Parallel Bootstrap CI (2 points)
+
+```{r bootstrap-parallel}
+bootstrap_ci_parallel <- function(data,
+                                  n_bootstrap = 1000,
+                                  confidence  = 0.95) {
+  boot_means <- unlist(
+    parallel::mclapply(seq_len(n_bootstrap), function(i) {
+      mean(sample(data, length(data), replace = TRUE))
+    }, mc.cores = safe_cores)
+  )
+  alpha <- 1 - confidence
+  ci    <- quantile(boot_means, probs = c(alpha / 2, 1 - alpha / 2))
+  c(lower = unname(ci[1]), upper = unname(ci[2]))
+}
+```
+
+## 5.2c: Scaling Comparison (2 points)
+
+```{r bootstrap-comparison}
+# Test on mtcars$mpg with different bootstrap sizes
+sizes <- c(500, 1000, 2000)
+
+results <- lapply(sizes, function(n) {
+  t_seq <- system.time(
+    bootstrap_ci_sequential(mtcars$mpg, n_bootstrap = n)
+  )["elapsed"]
+
+  t_par <- system.time(
+    bootstrap_ci_parallel(mtcars$mpg, n_bootstrap = n)
+  )["elapsed"]
+
+  data.frame(
+    n_bootstrap  = n,
+    seq_time_s   = round(t_seq, 3),
+    par_time_s   = round(t_par, 3),
+    speedup      = round(t_seq / t_par, 2)
+  )
+})
+
+summary_table <- do.call(rbind, results)
+print(summary_table)
+```
+
+**Findings:**
+
+*TODO: Does the speedup grow with problem size? Is there a point where parallelization overhead makes it not worth it for small n? Comment on your observations.*
